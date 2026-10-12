@@ -3,21 +3,24 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $user = User::firstOrCreate(
+            ['email' => 'demo@helpdesk.test'],
+            ['name' => 'Demo User', 'password' => Hash::make('password123')]
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        if ($user->tickets()->count() === 0) {
+            $user->tickets()->createMany([
+                ['title' => 'Printer not working', 'description' => 'The office printer shows a paper jam error.', 'priority' => 'Medium', 'status' => 'Open', 'category' => 'Hardware'],
+                ['title' => 'Cannot access VPN', 'description' => 'VPN client times out when connecting from home.', 'priority' => 'High', 'status' => 'In Progress', 'category' => 'Network'],
+                ['title' => 'Reset my email password', 'description' => 'I forgot my email password and need a reset link.', 'priority' => 'Low', 'status' => 'Resolved', 'category' => 'Account'],
+            ]);
+        }
     }
 }
