@@ -2,63 +2,83 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTicketRequest;
+use App\Http\Requests\UpdateTicketRequest;
+use App\Models\Ticket;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
 
 class TicketController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $filters = $request->only(['status', 'priority']);
+
+        $tickets = $request->user()->tickets()
+            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->when($filters['priority'] ?? null, fn ($q, $v) => $q->where('priority', $v))
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return Inertia::render('Tickets/Index', [
+            'tickets' => $tickets,
+            'filters' => $filters,
+            'options' => Ticket::options(),
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        return Inertia::render('Tickets/Create', [
+            'options' => Ticket::options(),
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(StoreTicketRequest $request)
     {
-        //
+        $ticket = new Ticket($request->validated());
+        $ticket->user_id = auth()->id(); // never from the form
+        $ticket->save();
+
+        return redirect()->route('tickets.index')->with('success', 'Ticket created.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(Ticket $ticket)
     {
-        //
+        Gate::authorize('view', $ticket);
+
+        return Inertia::render('Tickets/Show', [
+            'ticket' => $ticket,
+        ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function edit(Ticket $ticket)
     {
-        //
+        Gate::authorize('update', $ticket);
+
+        return Inertia::render('Tickets/Edit', [
+            'ticket'  => $ticket,
+            'options' => Ticket::options(),
+        ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(UpdateTicketRequest $request, Ticket $ticket)
     {
-        //
+        Gate::authorize('update', $ticket);
+
+        $ticket->update($request->validated());
+
+        return redirect()->route('tickets.index')->with('success', 'Ticket updated.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Ticket $ticket)
     {
-        //
+        Gate::authorize('delete', $ticket);
+
+        $ticket->delete();
+
+        return redirect()->route('tickets.index')->with('success', 'Ticket deleted.');
     }
 }
